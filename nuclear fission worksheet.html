@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuclear Fission Lab Simulation</title>
+    <style>
+        :root {
+            --bg-color: #1a202c;
+            --panel-bg: #2d3748;
+            --primary: #48bb78;
+            --primary-hover: #38a169;
+            --text: #edf2f7;
+            --u235-color: #f6e05e;
+            --u238-color: #4299e1;
+            --u239-color: #9f7aea;
+            --neutron-color: #ffffff;
+            --fission-bg: #e53e3e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-bottom: 5px; color: #fff; }
+        .subtitle { margin-bottom: 20px; color: #a0aec0; font-size: 14px; }
+
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            background-color: #4a5568;
+            color: #cbd5e0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 10px rgba(72, 187, 120, 0.4);
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            max-width: 950px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .canvas-container { position: relative; }
+        canvas {
+            border: 2px solid #4a5568;
+            border-radius: 8px;
+            background: #11141a;
+        }
+
+        .controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 280px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label { font-weight: 600; font-size: 14px; color: #cbd5e0; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            background: #232934;
+            padding: 10px;
+            border-radius: 6px;
+            flex-wrap: wrap;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        .stats {
+            background: #1a202c;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .btn {
+            padding: 12px;
+            background: #e53e3e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #c53030; }
+        .btn-gun { background: var(--primary); }
+        .btn-gun:hover { background: var(--primary-hover); }
+        
+        .sim-panel { display: none; width: 100%; }
+        .sim-panel.active { display: flex; gap: 20px; }
+
+        .ui-row { display: flex; gap: 10px; }
+        .ui-row button { flex: 1; }
+    </style>
+</head>
+<body>
+
+    <h1>Nuclear Fission Laboratory</h1>
+    <div class="subtitle">Interactive Web Simulator tailored for conceptual physics worksheets</div>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('one-nucleus')">Fission: One Nucleus</button>
+        <button class="tab-btn" onclick="switchTab('chain-reaction')">Chain Reaction</button>
+        <button class="tab-btn" onclick="switchTab('reactor')">Nuclear Reactor</button>
+    </div>
+
+    <div class="container">
+        <div id="one-nucleus-sim" class="sim-panel active">
+            <div class="canvas-container">
+                <canvas id="canvasOne" width="550" height="400"></canvas>
+            </div>
+            <div class="controls">
+                <h3>Single Fission Event</h3>
+                <p style="font-size:13px; color:#a0aec0; margin:0;">Aim the gun and fire a single neutron at the unstable Uranium-235 nucleus.</p>
+                <div class="legend">
+                    <div class="legend-item"><div class="dot" style="background:var(--u235-color)"></div> U-235</div>
+                    <div class="legend-item"><div class="dot" style="background:var(--neutron-color)"></div> Neutron</div>
+                </div>
+                <div class="ui-row">
+                    <button class="btn btn-gun" onclick="fireGunOne()">Fire Neutron Gun</button>
+                    <button class="btn" style="background:#4a5568;" onclick="resetOne()">Reset</button>
+                </div>
+                <div class="stats">
+                    <div>Nucleus State: <span id="one-state" style="color:var(--u235-color)">Stable U-235</span></div>
+                    <div>Loose Neutrons: <span id="one-neutrons">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="chain-reaction-sim" class="sim-panel">
+            <div class="canvas-container">
+                <canvas id="canvasChain" width="550" height="400"></canvas>
+            </div>
+            <div class="controls">
+                <h3>Chain Reaction Settings</h3>
+                <div class="control-group">
+                    <label>Initial U-235 Nuclei: <span id="slider-u235-val">100</span></label>
+                    <input type="range" id="slider-u235" min="0" max="100" value="100" oninput="initChainSimulation()">
+                </div>
+                <div class="control-group">
+                    <label>Initial U-238 Nuclei: <span id="slider-u238-val">0</span></label>
+                    <input type="range" id="slider-u238" min="0" max="100" value="0" oninput="initChainSimulation()">
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><div class="dot" style="background:var(--u235-color)"></div> U-235</div>
+                    <div class="legend-item"><div class="dot" style="background:var(--u238-color)"></div> U-238</div>
+                    <div class="legend-item"><div class="dot" style="background:var(--u239-color)"></div> U-239</div>
+                </div>
+                <div class="ui-row">
+                    <button class="btn btn-gun" onclick="fireGunChain()">Fire Gun</button>
+                    <button class="btn" style="background:#4a5568;" onclick="initChainSimulation()">Reset All</button>
+                </div>
+                <div class="stats">
+                    <div>% of U-235 Fissioned: <span id="stat-fissioned" style="color:var(--primary)">0%</span></div>
+                    <div>Total Gun Firings: <span id="stat-firings">0</span></div>
+                    <div>Remaining U-235: <span id="stat-rem235">100</span></div>
+                    <div>Absorbed U-239: <span id="stat-u239">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reactor-sim" class="sim-panel">
+            <div class="canvas-container">
+                <canvas id="canvasReactor" width="550" height="400"></canvas>
+            </div>
+            <div class="controls">
+                <h3>Reactor Core Control</h3>
+                <div class="control-group">
+                    <label>Control Rod Insertion: <span id="slider-rods-val">50%</span></label>
+                    <input type="range" id="slider-rods" min="0" max="100" value="50">
+                </div>
+                <div class="ui-row">
+                    <button class="btn btn-gun" onclick="fireGunReactor()">Fire Neutrons</button>
+                    <button class="btn" style="background:#4a5568;" onclick="resetReactor()">Reset Reactor</button>
+                </div>
+                <div class="stats" style="border-left-color: #e53e3e;">
+                    <div style="color:#fc8181;">Power Output: <span id="stat-power">0 MW</span></div>
+                    <div style="color:#63b3ed;">Total Energy Produced: <span id="stat-energy">0 GJ</span></div>
+                </div>
+                <div style="font-size: 11px; color: #a0aec0; line-height: 1.3;">
+                    * <strong>Control Rods</strong> block/absorb loose neutrons safely. Pull them out (0%) to accelerate the output, push them in (100%) to shut down the reaction.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL SIMULATION CONTROLS ---
+        let currentTab = 'one-nucleus';
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.sim-panel').forEach(p => p.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${tab}-sim`).classList.add('active');
+        }
+
+        // --- MATH/PHYSICS UTILS ---
+        class Neutron {
+            constructor(x, y, vx, vy) {
+                this.x = x; this.y = y;
+                this.vx = vx; this.vy = vy;
+                this.active = true;
+                this.radius = 3;
+            }
+            update(width, height) {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) {
+                    this.active = false; // Left boundary
+                }
+            }
+            draw(ctx) {
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Nucleus {
+            constructor(x, y, type) {
+                this.x = x; this.y = y;
+                this.type = type; // '235', '238', '239', 'fissioned'
+                this.radius = type === '235' ? 14 : 15;
+                this.active = true;
+                this.fissionTimer = 0;
+            }
+            draw(ctx) {
+                if (!this.active) return;
+                if (this.type === '235') {
+                    ctx.fillStyle = '#f6e05e';
+                    ctx.strokeStyle = '#ecc94b';
+                } else if (this.type === '238') {
+                    ctx.fillStyle = '#4299e1';
+                    ctx.strokeStyle = '#3182ce';
+                } else if (this.type === '239') {
+                    ctx.fillStyle = '#9f7aea';
+                    ctx.strokeStyle = '#805ad5';
+                } else if (this.type === 'fissioned') {
+                    ctx.fillStyle = '#e53e3e';
+                    ctx.strokeStyle = '#c53030';
+                }
+
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Text labels
+                ctx.fillStyle = this.type === '235' ? '#000' : '#fff';
+                ctx.font = '9px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                if (this.type !== 'fissioned') {
+                    ctx.fillText(this.type === '239' ? 'U-239' : 'U-' + this.type, this.x, this.y);
+                }
+            }
+        }
+
+        // ================= ENGINE 1: ONE NUCLEUS =================
+        const canvasOne = document.getElementById('canvasOne');
+        const ctxOne = canvasOne.getContext('2d');
+        let oneNeutrons = [];
+        let targetNucleus = new Nucleus(350, 200, '235');
+        let singleFissionExplosion = false;
+        let singleExplosionTimer = 0;
+        let pieces = [];
+
+        function fireGunOne() {
+            if (oneNeutrons.length === 0 && targetNucleus.type === '235') {
+                oneNeutrons.push(new Neutron(50, 200, 4, 0));
+            }
+        }
+
+        function resetOne() {
+            oneNeutrons = [];
+            targetNucleus = new Nucleus(350, 200, '235');
+            singleFissionExplosion = false;
+            pieces = [];
+            document.getElementById('one-state').innerText = "Stable U-235";
+            document.getElementById('one-state').style.color = "var(--u235-color)";
+        }
+
+        function updateOne() {
+            ctxOne.clearRect(0, 0, canvasOne.width, canvasOne.height);
+            
+            // Draw Gun
+            ctxOne.fillStyle = '#718096';
+            ctxOne.fillRect(10, 185, 40, 30);
+            ctxOne.fillRect(50, 193, 20, 14);
+
+            // Update & Draw Target
+            if (!singleFissionExplosion) {
+                targetNucleus.draw(ctxOne);
+            } else {
+                // Animation of splitting elements
+                singleExplosionTimer++;
+                ctxOne.fillStyle = 'rgba(229, 62, 62, ' + (1 - singleExplosionTimer/40) + ')';
+                ctxOne.beginPath();
+                ctxOne.arc(targetNucleus.x, targetNucleus.y, 40, 0, Math.PI*2);
+                ctxOne.fill();
+
+                ctxOne.fillStyle = '#e53e3e';
+                pieces.forEach(p => {
+                    p.x += p.vx; p.y += p.vy;
+                    ctxOne.beginPath();
+                    ctxOne.arc(p.x, p.y, 8, 0, Math.PI*2);
+                    ctxOne.fill();
+                    ctxOne.fillStyle = '#a0aec0';
+                    ctxOne.font = '8px sans-serif';
+                    ctxOne.fillText("Daughter", p.x, p.y);
+                });
+
+                if(singleExplosionTimer > 40) {
+                    singleFissionExplosion = false;
+                }
+            }
+
+            // Update & Draw Neutrons
+            oneNeutrons.forEach((n, idx) => {
+                n.update(canvasOne.width, canvasOne.height);
+                n.draw(ctxOne);
+
+                // Collision with U-235
+                if (targetNucleus.type === '235' && n.active) {
+                    let dist = Math.hypot(n.x - targetNucleus.x, n.y - targetNucleus.y);
+                    if (dist < targetNucleus.radius) {
+                        n.active = false;
+                        // Trigger Fission!
+                        targetNucleus.type = 'fissioned';
+                        singleFissionExplosion = true;
+                        singleExplosionTimer = 0;
+                        document.getElementById('one-state').innerText = "Fission Initiated!";
+                        document.getElementById('one-state').style.color = "var(--fission-bg)";
+
+                        // Create split daughter nuclei tracks
+                        pieces = [
+                            {x: targetNucleus.x, y: targetNucleus.y, vx: -1.5, vy: -2},
+                            {x: targetNucleus.x, y: targetNucleus.y, vx: -1, vy: 2.5}
+                        ];
+
+                        // Eject 3 free model product neutrons
+                        setTimeout(() => {
+                            oneNeutrons.push(new Neutron(targetNucleus.x, targetNucleus.y, 3, -2));
+                            oneNeutrons.push(new Neutron(targetNucleus.x, targetNucleus.y, 4, 0.5));
+                            oneNeutrons.push(new Neutron(targetNucleus.x, targetNucleus.y, 2.5, 3));
+                        }, 50);
+                    }
+                }
+            });
+
+            oneNeutrons = oneNeutrons.filter(n => n.active);
+            document.getElementById('one-neutrons').innerText = oneNeutrons.length;
+
+            if (currentTab === 'one-nucleus') requestAnimationFrame(updateOne);
+            else setTimeout(updateOne, 200);
+        }
+
+        // ================= ENGINE 2: CHAIN REACTION =================
+        const canvasChain = document.getElementById('canvasChain');
+        const ctxChain = canvasChain.getContext('2d');
+        let chainNeutrons = [];
+        let chainNuclei = [];
+        let totalFirings = 0;
+        let baseU235Count = 100;
+
+        function initChainSimulation() {
+            chainNeutrons = [];
+            chainNuclei = [];
+            totalFirings = 0;
+            
+            let u235Count = parseInt(document.getElementById('slider-u235').value);
+            let u238Count = parseInt(document.getElementById('slider-u238').value);
+            baseU235Count = u235Count;
+
+            document.getElementById('slider-u235-val').innerText = u235Count;
+            document.getElementById('slider-u238-val').innerText = u238Count;
+            document.getElementById('stat-firings').innerText = totalFirings;
+            document.getElementById('stat-fissioned').innerText = "0%";
+
+            // Spread out inside bounded environment matrix safely
+            for(let i=0; i<u235Count; i++) {
+                chainNuclei.push(new Nucleus(80 + Math.random()*440, 30 + Math.random()*340, '235'));
+            }
+            for(let i=0; i<u238Count; i++) {
+                chainNuclei.push(new Nucleus(80 + Math.random()*440, 30 + Math.random()*340, '238'));
+            }
+        }
+
+        function fireGunChain() {
+            totalFirings++;
+            document.getElementById('stat-firings').innerText = totalFirings;
+            // Fire sweeping cluster of initial seed triggers
+            chainNeutrons.push(new Neutron(20, 150, 5, 0.5));
+            chainNeutrons.push(new Neutron(20, 200, 5, 0));
+            chainNeutrons.push(new Neutron(20, 250, 5, -0.5));
+        }
+
+        function updateChain() {
+            ctxChain.clearRect(0, 0, canvasChain.width, canvasChain.height);
+
+            // Draw Gun
+            ctxChain.fillStyle = '#718096';
+            ctxChain.fillRect(5, 180, 30, 40);
+
+            let remainingU235 = 0;
+            let capturedU239 = 0;
+
+            chainNuclei.forEach(nuc => {
+                nuc.draw(ctxChain);
+                if (nuc.type === '235') remainingU235++;
+                if (nuc.type === '239') capturedU239++;
+            });
+
+            chainNeutrons.forEach(n => {
+                n.update(canvasChain.width, canvasChain.height);
+                n.draw(ctxChain);
+
+                // Analyze hits
+                chainNuclei.forEach(nuc => {
+                    if (!nuc.active) return;
+                    let dist = Math.hypot(n.x - nuc.x, n.y - nuc.y);
+                    if (dist < nuc.radius) {
+                        if (nuc.type === '235') {
+                            n.active = false;
+                            nuc.type = 'fissioned';
+                            nuc.active = false; // vanishes out to represent split decay
+                            
+                            // Emit reaction product splitting pieces
+                            for(let i=0; i<3; i++) {
+                                let ang = Math.random() * Math.PI * 2;
+                                chainNeutrons.push(new Neutron(nuc.x, nuc.y, Math.cos(ang)*4, Math.sin(ang)*4));
+                            }
+                        } else if (nuc.type === '238') {
+                            // Non-fissile absorption into U-239
+                            n.active = false;
+                            nuc.type = '239';
+                        }
+                    }
+                });
+            });
+
+            chainNeutrons = chainNeutrons.filter(n => n.active);
+
+            // UI Stat Trackers updates
+            document.getElementById('stat-rem235').innerText = remainingU235;
+            document.getElementById('stat-u239').innerText = capturedU239;
+            if(baseU235Count > 0) {
+                let pct = ((baseU235Count - remainingU235) / baseU235Count) * 100;
+                document.getElementById('stat-fissioned').innerText = pct.toFixed(0) + "%";
+            } else {
+                document.getElementById('stat-fissioned').innerText = "N/A";
+            }
+
+            if (currentTab === 'chain-reaction') requestAnimationFrame(updateChain);
+            else setTimeout(updateChain, 200);
+        }
+
+        // ================= ENGINE 3: NUCLEAR REACTOR =================
+        const canvasReactor = document.getElementById('canvasReactor');
+        const ctxReactor = canvasReactor.getContext('2d');
+        let reactorNeutrons = [];
+        let reactorNuclei = [];
+        let reactorPower = 0;
+        let reactorEnergy = 0;
+
+        function resetReactor() {
+            reactorNeutrons = [];
+            reactorNuclei = [];
+            reactorPower = 0;
+            reactorEnergy = 0;
+            // Dense array layout matrix representing fuel rods configurations
+            for(let x = 80; x < 500; x += 35) {
+                for(let y = 60; y < 360; y += 35) {
+                    reactorNuclei.push(new Nucleus(x, y, '235'));
+                }
+            }
+        }
+
+        function fireGunReactor() {
+            // Introduce continuous neutrons to step load power levels
+            for(let i=0; i<6; i++) {
+                reactorNeutrons.push(new Neutron(10, 50 + Math.random()*300, 3 + Math.random()*2, (Math.random()-0.5)*2));
+            }
+        }
+
+        function updateReactor() {
+            ctxReactor.clearRect(0, 0, canvasReactor.width, canvasReactor.height);
+            
+            let insertionPct = parseInt(document.getElementById('slider-rods').value);
+            document.getElementById('slider-rods-val').innerText = insertionPct + "%";
+
+            // Draw Control Rod System Overhead
+            let rodLength = (insertionPct / 100) * 320;
+            ctxReactor.fillStyle = 'rgba(113, 128, 150, 0.8)';
+            
+            // Draw 4 physical structural containment rods paths
+            let rodXPositions = [140, 240, 340, 440];
+            rodXPositions.forEach(rx => {
+                ctxReactor.fillRect(rx - 6, 20, 12, rodLength);
+                ctxReactor.strokeStyle = '#cbd5e0';
+                ctxReactor.strokeRect(rx - 6, 20, 12, rodLength);
+            });
+
+            // Handle active nuclear targets status
+            let currentFissionsActive = 0;
+            reactorNuclei.forEach(nuc => {
+                nuc.draw(ctxReactor);
+            });
+
+            reactorNeutrons.forEach(n => {
+                n.update(canvasReactor.width, canvasReactor.height);
+                n.draw(ctxReactor);
+
+                // Core boundaries safety bounds checks
+                if(n.x > canvasReactor.width) n.active = false;
+
+                // Check Control Rod Collisions interception points
+                if (rodLength > 0) {
+                    rodXPositions.forEach(rx => {
+                        if (n.x > rx - 7 && n.x < rx + 7 && n.y > 20 && n.y < 20 + rodLength) {
+                            n.active = false; // Control rod absorbed safety impact!
+                        }
+                    });
+                }
+
+                // Check core fuel reaction hits
+                if (n.active) {
+                    reactorNuclei.forEach(nuc => {
+                        if (nuc.type === '235') {
+                            let dist = Math.hypot(n.x - nuc.x, n.y - nuc.y);
+                            if (dist < nuc.radius) {
+                                n.active = false;
+                                nuc.type = 'fissioned';
+                                currentFissionsActive++;
+                                
+                                // Spawn product chain feedback loops
+                                setTimeout(() => {
+                                    for(let i=0; i<3; i++) {
+                                        let ang = Math.random() * Math.PI * 2;
+                                        reactorNeutrons.push(new Neutron(nuc.x, nuc.y, Math.cos(ang)*3.5, Math.sin(ang)*3.5));
+                                    }
+                                }, 30);
+                            }
+                        }
+                    });
+                }
+            });
+
+            reactorNeutrons = reactorNeutrons.filter(n => n.active);
+
+            // Calculate output metrics parameters
+            reactorPower = currentFissionsActive * 45 + (reactorNeutrons.length * 1.5);
+            if(reactorPower > 3000) reactorPower = 3000; // max threshold cap limit
+            reactorEnergy += reactorPower * 0.01;
+
+            document.getElementById('stat-power').innerText = reactorPower.toFixed(0) + " MW";
+            document.getElementById('stat-energy').innerText = reactorEnergy.toFixed(1) + " GJ";
+
+            // Ambient natural structural replenishment loop simulation 
+            if(Math.random() < 0.04 && reactorNeutrons.length < 15 && insertionPct < 90) {
+                // Natural spontaneous thermal emissions inside the medium
+                let randomTarget = reactorNuclei[Math.floor(Math.random()*reactorNuclei.length)];
+                if(randomTarget && randomTarget.type === '235') {
+                    reactorNeutrons.push(new Neutron(randomTarget.x, randomTarget.y, 2, 2));
+                }
+            }
+
+            if (currentTab === 'reactor') requestAnimationFrame(updateReactor);
+            else setTimeout(updateReactor, 200);
+        }
+
+        // Initialize and trigger global run loops loops
+        initChainSimulation();
+        resetReactor();
+        
+        updateOne();
+        updateChain();
+        updateReactor();
+    </script>
+</body>
+</html>
